@@ -1,12 +1,10 @@
 # -*- coding: utf-8 -*-
-import graphene
-
-from handler.mutationhandler import Add
+from handler.mutationhandler import *
 
 
 class Query(graphene.ObjectType):
 
-    tracker = graphene.List(graphene.String)
+    list = graphene.List(graphene.String)
 
     def resolve_tracker(self, info):
         return {'ok': 'ok'}
@@ -19,4 +17,9 @@ class Mutation(graphene.ObjectType):
             "`id` doesn't exist (or not belong to the tracker)."
         )
 
-    add_wired = Add.Field()
+    add = Add.Field()
+    delete = Del.Field()
+    set = Set.Field()
+
+
+schema = graphene.Schema(Query, Mutation)
