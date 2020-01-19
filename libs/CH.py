@@ -1,0 +1,108 @@
+# -*- coding: utf-8 -*-
+from libs.dotdict import DotDict
+
+fmt = DotDict(cmd_type='s',
+              cmd_num='B',
+              softversion='B',
+              seq='B',
+              sessionID='Q',
+              iccid='10B',
+              reason='1B',
+              sn='5B',
+              scriptversion='4B',
+              pbat='B',
+              charging_status='B',
+              gsm='B',
+              temp='b',
+              timestamp='i',
+              gps_time='i',
+              lon='i',
+              lat='i',
+              alt='h',
+              speed='B',
+              degree='B',
+              pacc='B',
+              gps='B',
+              report_type='B',
+              pvt_count='B',
+              pvt_length='B',
+              success='B',
+              login_status='B',
+              body_length='H',
+              config_args_num='B',
+              alert_flags='B',
+              config_args_length='H',
+              debug='h',
+              content_length='H',
+              trip_fuel='h',
+              trip_mileage='h')
+
+length = DotDict(cmd_type=1,
+                 cmd_num=1,
+                 softversion=1,
+                 seq=1,
+                 sessionID=8,
+                 iccid=10,
+                 reason=1,
+                 sn=5,
+                 scriptversion=4,
+                 pbat=1,
+                 charging_status=1,
+                 gsm=1,
+                 temp=1,
+                 timestamp=4,
+                 gps_time=4,
+                 lon=4,
+                 lat=4,
+                 alt=2,
+                 speed=1,
+                 degree=1,
+                 pacc=1,
+                 gps=1,
+                 report_type=1,
+                 pvt_count=1,
+                 pvt_length=1,
+                 success=1,
+                 login_status=1,
+                 body_length=2,
+                 config_args_num=1,
+                 alert_flags=1,
+                 config_args_length=2,
+                 debug=2,
+                 content_length=2,
+                 trip_fuel=2,
+                 trip_mileage=2)
+
+U_MESSAGE_TYPE = DotDict(LOGIN='U1',
+                         HEARTBEAT='U2',
+                         CONFIG='U3',
+                         REPORT='U4',
+                         LOCATION='U5',
+                         EQUIP='U6')
+D_MESSAGE_TYPE = DotDict(LOGIN='D1',
+                         HEARTBEAT='D2',
+                         CONFIG='D3',
+                         REPORT='D4',
+                         LOCATION='D5',
+                         EQUIP='D6')
+
+# for D1
+LOGIN_STATUS = DotDict(SUCCESS=0,
+                       ACTIVE_READY=1,
+                       ILLEGAL_SIM_CARD=2,
+                       DEL_DATA=3,
+                       SELF_CHECK=4,
+                       SCRIPT_UPDATE=5)
+
+# for D*
+RESPONSE_STATUS = DotDict(SUCCESS=0,
+                          INVALID_SESSIONID=1,
+                          RELOAD_CONFIG=2,
+                          SERVER_ERROR=15,
+                          REBOOT_TERMINAL=255,
+                          )
+
+class Unit:
+    LEN  = 1 << 0
+    CAP  = 1 << 0
+    TEMP = 1 << 1

@@ -1,25 +1,33 @@
 # -*- coding: utf-8 -*-
 import logging
 import os
+import signal
+import socket
+from threading import Lock
 
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
 from tornado.options import define, options
 
-from handler.graphqlhandler import GraphiQLHandler, GQHandler
+from handler.graphqlhandler import TornadoGraphQLHandler
+from handler.schemahandler import schema
 from libs.confhelper import ConfHelper
+from libs.dotdict import DotDict
 
 define('conf', default="./global.conf")
-define('mode', default="INFO")
-define('tracker', default=dict())
+define('mode', default="deploy")
+define('socket_param', default=socket.socket(socket.AF_INET, socket.SOCK_DGRAM))
+define('tracker', default=DotDict())
+define('thread_lock', default=Lock())
 
 
 class Application(tornado.web.Application):
     def __init__(self, debug=False):
         handlers = [
-            (r'/graphql', GQHandler, None, GQHandler.__name__),
-            (r'/*', GraphiQLHandler, {'endpoint': '/graphql'})
+            # (r'/graphql', GQHandler, None, GQHandler.__name__),
+            # (r'/*', GraphiQLHandler, {'endpoint': '/graphql'})
+            (r'/*', TornadoGraphQLHandler, dict(graphiql=True, schema=schema))
         ]
 
         settings = dict(
@@ -54,6 +62,7 @@ if __name__ == '__main__':
         ConfHelper.load(options.conf)
         application = Application(debug=debug_mode)
         http_server = tornado.httpserver.HTTPServer(application, xheaders=True)
+        options.socket_param.connect((ConfHelper.REMOTE_CONF.host, int(ConfHelper.REMOTE_CONF.port)))
 
         http_server.listen(int(ConfHelper.LOCAL_CONF.port))
         logging.warning("[SERVER] running on: localhost:%s", ConfHelper.LOCAL_CONF.port)
@@ -67,3 +76,4 @@ if __name__ == '__main__':
         if http_server:
             shutdown(http_server)
         logging.warning("[SERVER] Stopped. Bye!")
+        os.kill(os.getpid(), signal.SIGTERM)

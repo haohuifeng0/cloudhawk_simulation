@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import inspect
 import json
 import sys
@@ -54,7 +53,7 @@ class TornadoGraphQLHandler(web.RequestHandler):
     request_context = {}
 
     def initialize(self,
-                   schema=None,
+                   schema=None, 
                    executor=None,
                    middleware: Optional[Any] = None,
                    root_value: Any = None,
