@@ -20,6 +20,7 @@ class Mutation(graphene.ObjectType):
     add = Add.Field()
     delete = Del.Field()
     set = Set.Field()
+    alert = SetAlert.Field()
 
 
 schema = graphene.Schema(Query, Mutation)

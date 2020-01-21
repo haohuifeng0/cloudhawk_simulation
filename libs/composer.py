@@ -4,6 +4,9 @@ import struct
 import random
 
 import logging
+
+from libs import fn
+
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s %(filename)s:%(lineno)d %(levelname)s %(message)s',
                     datefmt='%Y%m%d %H:%M:%S')
@@ -40,7 +43,7 @@ class Composer(object):
     def compose_heartbat(self, seq, iccid, args):
         fmt = '!sBBBQ10BBBBBBB'
         value = [b'U', 2, 48, seq, args.sessionID
-                 ] + iccid + [args.bat, args.chg, args.gms, args.temp, 0, 0]
+                 ] + iccid + [args.bat, args.chg, args.gsm, args.temp, 0, 0]
         self.logging.info("realtime_mg: %s", value)
         heartbeat_mg = struct.pack(fmt, *value)
         return heartbeat_mg
@@ -51,6 +54,17 @@ class Composer(object):
         self.logging.info("config_mg: %s", value)
         config_mg = struct.pack(fmt, *value)
         return config_mg
+
+    def compose_u4(self, tk):
+        fmt = '!sBBBQ10B'
+        fmt += 'BBiiihBBBBBb'
+        lon, lat = fn.get_lonlat(tk.lon, tk.lat)
+        value = [b'U', 4, 48, fn.get_seq(tk.sn), tk.sessionID] + tk.fmt_iccid + \
+                [tk.type, tk.bat, tk.ts, lon, lat, tk.alt, tk.speed, tk.course,
+                 tk.gps, tk.acc, tk.gsm, tk.temp]
+        self.logging.info("realtime_mg: %s", value)
+        report_mg = struct.pack(fmt, *value)
+        return report_mg
 
     def compose_realtime(self, seq, iccid, sessionID, t_time):
         fmt = '!sBBBQ10B'

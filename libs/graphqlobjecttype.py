@@ -11,3 +11,11 @@ class ChargingStatus(graphene.Enum):
     NO = 0
     YES = 1
     CON = 2
+
+
+class AlertType(graphene.Enum):
+    illegalShake = 1
+    powerLow = 2
+    powerFull = 3
+    SOS = 4
+    powerOutages = 6
