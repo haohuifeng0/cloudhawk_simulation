@@ -20,7 +20,7 @@ class GraphQLExtensionStack(GraphQLExtension):
     def __init__(self,
                  extensions: List[Union[Callable[[], GraphQLExtension], GraphQLExtension]] = None
                  ):
-        self.extensions: List[GraphQLExtension] = list(instantiate_extensions(extensions))
+        self.extensions = list(instantiate_extensions(extensions))
 
     async def request_started(self, request, query_string, parsed_query, operation_name, variables, context, request_context):
         on_end = await self._handle_did_start('request_started', request, query_string, parsed_query, operation_name,

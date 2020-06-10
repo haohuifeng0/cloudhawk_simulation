@@ -1,0 +1,1 @@
+python server.py --mode=debug --conf=live.conf
