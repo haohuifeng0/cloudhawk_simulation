@@ -4,6 +4,7 @@ import struct
 import random
 
 import logging
+import time
 
 from libs import fn
 
@@ -162,14 +163,16 @@ class Composer(object):
         position_mg = struct.pack(fmt, *value)
         return position_mg
 
-    def compose_move(self, seq, iccid, sessionID, t_time):
+    def compose_move(self, tk, lonlats, ts):
         fmt = '!sBBBQ10BBB'
         fmt += 'iiihBBBBBbBBh'
+
         lon, lat = self.get_lonlat()
         speed = 13
         pdt = 95
         status = 2
-        value = [b'U', 5, 48, seq, sessionID] + iccid + [1, 24, t_time, lon, lat, 20, speed, 10, 25, 30, 9, 1, pdt, status, 1]
+        value = [b'U', 5, 48, fn.get_seq(tk.sn), tk.sessionID] + tk.fmt_iccid \
+                + [len(lonlats), 24, ts, lon, lat, 20, speed, 10, 25, 30, 9, 1, pdt, status, 1]
         self.logging.info("move_mg: %s", value)
         position_mg = struct.pack(fmt, *value)
         return position_mg
@@ -210,32 +213,6 @@ class Composer(object):
         position_mg = struct.pack(fmt, *value)
         return position_mg
 
-    def compose_enterPOI(self, seq, iccid, sessionID, t_time):
-        fmt = '!sBBBQ10BBB'
-        fmt += 'iiihBBBBBbBBh'
-        lat = 110396808 / 36
-        lon = 374540184 / 36
-        speed = 100
-        pdt = 90
-        status = 0
-        value = [b'U', 5, 48, seq, sessionID] + iccid + [1, 24, t_time, lon, lat, 20, speed, 10, 25, 30, 9, 1, pdt, status, 1]
-        self.logging.info("enterPOI_mg: %s", value)
-        position_mg = struct.pack(fmt, *value)
-        return position_mg
-
-    def compose_leavePOI(self, seq, iccid, sessionID, t_time):
-        fmt = '!sBBBQ10BBB'
-        fmt += 'iiihBBBBBbBBh'
-        lat = 110396808 / 36
-        lon = 374530824 / 36
-        speed = 100
-        pdt = 89
-        status = 0
-        value = [b'U', 5, 48, seq, sessionID] + iccid + [1, 24, t_time, lon, lat, 20, speed, 10, 25, 30, 9, 1, pdt, status, 1]
-        self.logging.info("leavePOI_mg: %s", value)
-        position_mg = struct.pack(fmt, *value)
-        return position_mg
-
     def compose_enterRegion(self, seq, iccid, sessionID, t_time):
         fmt = '!sBBBQ10BBB'
         fmt += 'iiihBBBBBbBBh'
@@ -271,6 +248,52 @@ class Composer(object):
         self.logging.info("u6_mg: %s", value)
         u6_mg = struct.pack(fmt, *value)
         return u6_mg
+
+    def fmt_mac(self, mac):
+        return list(struct.unpack('!6B', binascii.a2b_hex(mac)))
+
+    def fmt_temp(self, temp):
+        temp = float('%.2f' % temp)
+        temp1, temp2 = str(temp).split('.')
+        if len(temp2) == 1 and int(temp2) != 0:
+            temp2 = int(temp2) * 10
+        if int(temp1) < 0:
+            temp1 = abs(int(temp1)) | 0x80
+
+        return [int(temp1), int(temp2)]
+
+    def compose_u7_header(self, tk, l):
+        fmt = '!sBBBQ10BB'
+        value = [b'U', 7, 48, fn.get_seq(tk.sn), tk.sessionID] + tk.fmt_iccid + [l]
+        return value, fmt
+
+    def compose_ruuvi(self, ruuvi, value, fmt):
+        fmt += 'BBi6BBBBB' * len(ruuvi)
+        for r in ruuvi:
+            ts = r.ts or int(time.time())
+            temp = self.fmt_temp(r.temp)
+            mac = self.fmt_mac(r.mac)
+            v = [1, r.rssi, ts] + mac + [r.bat, r.hum*2] + temp
+            value.extend(v)
+        return value, fmt
+
+    def compose_wireless_door(self, door, value, fmt):
+        fmt += 'BBi6BBBBB' * len(door)
+        for r in door:
+            ts = r.ts or int(time.time())
+            mac = self.fmt_mac(r.mac)
+            v = [2, r.rssi, ts] + mac + [r.bat, r.status, r.c2o_ts, r.o2c_ts]
+            value.extend(v)
+        return value, fmt
+
+    def compose_range(self, range, value, fmt):
+        fmt += 'BBi6BBBh' * len(range)
+        for r in range:
+            ts = r.ts or int(time.time())
+            mac = self.fmt_mac(r.mac)
+            v = [3, r.rssi, ts] + mac + [r.bat, r.status, r.value]
+            value.extend(v)
+        return value, fmt
 
     def compose_u8(self, seq, iccid, sessionID, t_time):
         fmt = '!sBBBQ10B'

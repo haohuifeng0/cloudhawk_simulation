@@ -21,6 +21,8 @@ class Mutation(graphene.ObjectType):
     delete = Del.Field()
     set = Set.Field()
     alert = SetAlert.Field()
+    move = Move.Field()
+    wireless_sensor = WirelessSensor.Field()
 
 
 schema = graphene.Schema(Query, Mutation)

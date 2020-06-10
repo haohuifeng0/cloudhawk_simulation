@@ -19,3 +19,33 @@ class AlertType(graphene.Enum):
     powerFull = 3
     SOS = 4
     powerOutages = 6
+
+
+class WirelessSensorType(graphene.Enum):
+    ruuvi = 1
+    door = 2
+    range = 3
+
+
+class BaseWirelessSensorObject(graphene.InputObjectType):
+    mac = graphene.Argument(graphene.String, required=True)
+    bat = graphene.Argument(graphene.Int, default_value=82)
+    rssi = graphene.Argument(graphene.Int, default_value=70)
+    ts = graphene.Argument(graphene.Int)
+
+
+class RuuviSensorObject(BaseWirelessSensorObject):
+    temp = graphene.Argument(graphene.Float, required=True)
+    hum = graphene.Argument(graphene.Int, required=True)
+
+
+class DoorSensorObject(BaseWirelessSensorObject):
+    status = graphene.Argument(graphene.Int, required=True)
+    c2o_ts = graphene.Argument(graphene.Int, default_value=255)
+    o2c_ts = graphene.Argument(graphene.Int, default_value=255)
+
+
+class RangeSensorObject(BaseWirelessSensorObject):
+    status = graphene.Argument(graphene.Int, default_value=0)
+    value = graphene.Argument(graphene.Int, required=True)
+
