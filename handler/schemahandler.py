@@ -22,7 +22,10 @@ class Mutation(graphene.ObjectType):
     set = Set.Field()
     alert = SetAlert.Field()
     move = Move.Field()
+    stop = Stop.Field()
+    wired = WiredSensor.Field()
     wireless_sensor = WirelessSensor.Field()
+    check = SelfCheck.Field()
 
 
 schema = graphene.Schema(Query, Mutation)

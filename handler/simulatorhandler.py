@@ -51,7 +51,7 @@ class SimulatorTracker(object):
                 self.socket.send(U2)
             else:
                 break
-            time.sleep(3e2)
+            time.sleep(1.8e3)
 
     def send_config(self):
 
