@@ -151,28 +151,31 @@ class Composer(object):
         position_mg = struct.pack(fmt, *value)
         return position_mg
 
-    def compose_stop(self, seq, iccid, sessionID, t_time):
-        lon, lat = self.get_lonlat()
+    def compose_stop(self, tk, ts=None):
         fmt = '!sBBBQ10BBB'
         fmt += 'iiihBBBBBbBBh'
-        speed = 13
-        pdt = 95
         status = 1
-        value = [b'U', 5, 48, seq, sessionID] + iccid + [1, 24, t_time, lon, lat, 20, speed, 10, 25, 30, 9, 1, pdt, status, 1]
+        ts = ts or int(time.time())
+        value = [b'U', 5, 48, fn.get_seq(tk.sn), tk.sessionID] + tk.fmt_iccid + \
+                [1, 24, int(ts), int(tk.lon*100000), int(tk.lat*100000),
+                 tk.alt, tk.speed, tk.course, tk.gps,
+                 tk.acc, tk.gsm, tk.temp, tk.bat, status, 1]
         self.logging.info("stop_mg: %s", value)
         position_mg = struct.pack(fmt, *value)
         return position_mg
 
-    def compose_move(self, tk, lonlats, ts):
+    def compose_move(self, tk, lonlats):
         fmt = '!sBBBQ10BBB'
-        fmt += 'iiihBBBBBbBBh'
-
-        lon, lat = self.get_lonlat()
-        speed = 13
-        pdt = 95
-        status = 2
-        value = [b'U', 5, 48, fn.get_seq(tk.sn), tk.sessionID] + tk.fmt_iccid \
-                + [len(lonlats), 24, ts, lon, lat, 20, speed, 10, 25, 30, 9, 1, pdt, status, 1]
+        fmt += 'iiihBBBBBbBBh' * len(lonlats)
+        value = [b'U', 5, 48, fn.get_seq(tk.sn), tk.sessionID] + tk.fmt_iccid + [len(lonlats), 24]
+        for i, l in enumerate(lonlats):
+            if i == 0:
+                status = 2
+            else:
+                status = 0
+            value += [int(l[2]), int(l[0]), int(l[1]),
+                      tk.alt, tk.speed, tk.course, tk.gps,
+                      tk.acc, tk.gsm, tk.temp, tk.bat, status, 1]
         self.logging.info("move_mg: %s", value)
         position_mg = struct.pack(fmt, *value)
         return position_mg
@@ -239,12 +242,11 @@ class Composer(object):
         position_mg = struct.pack(fmt, *value)
         return position_mg
 
-    def compose_u6(self, seq, iccid, sessionID, t_time):
+    def compose_u6(self, tk, info):
         fmt = '!sBBBQ10B'
-        info = 'TEMP@15=100|GPIO1@15=31|GPIO2@15=1384|DOR@10=1|ODO@26=206825|FUL@26=15|RPM@26=890'
         length = len(info)
         fmt += 'iH%ss' % length
-        value = [b'U', 6, 48, seq, sessionID] + iccid + [t_time, length, info]
+        value = [b'U', 6, 48, fn.get_seq(tk.sn), tk.sessionID] + tk.fmt_iccid + [int(time.time()), length, info.encode('utf-8')]
         self.logging.info("u6_mg: %s", value)
         u6_mg = struct.pack(fmt, *value)
         return u6_mg
@@ -295,15 +297,11 @@ class Composer(object):
             value.extend(v)
         return value, fmt
 
-    def compose_u8(self, seq, iccid, sessionID, t_time):
+    def compose_u8(self, tk):
+        t_time = int(time.time())
         fmt = '!sBBBQ10B'
         fmt += 'BBIiihBBBBBbHHIBBI6B'
-        lng, lat = self.get_lonlat()
-        alt = 12
-        speed = 60
-        cs = 10
-        gps = 45
-        pacc = 23
+        lon, lat = fn.get_lonlat(tk.lon, tk.lat)
         rxlev = 39
         tp = -5
         bvg = 3200
@@ -313,8 +311,9 @@ class Composer(object):
         bler = 88
         blets = t_time - 90
         blemac = [209, 58, 39, 178, 72, 129]
-        value = [b'U', 8, 48, seq, sessionID] + iccid
-        value += [0, 86, t_time, lng, lat, alt, speed, cs, gps, pacc, rxlev,
+        value = [b'U', 8, 48, fn.get_seq(tk.sn), tk.sessionID] + tk.fmt_iccid
+        value += [0, 86, t_time, lon, lat, tk.alt, tk.speed,
+                  tk.course, tk.gps, tk.acc, rxlev,
                   tp, bvg, epvg, ait, blet, bler, blets] + blemac
         self.logging.info("u8_msg: %s", value)
         u8_mg = struct.pack(fmt, *value)

@@ -21,6 +21,15 @@ class AlertType(graphene.Enum):
     powerOutages = 6
 
 
+class WiredSensorType(graphene.Enum):
+    gpio0 = 'GPIO0'
+    gpio1 = 'GPIO1'
+    gpio2 = 'GPIO2'
+    gpio3 = 'GPIO3'
+    gpio4 = 'GPIO4'
+    gpio5 = 'GPIO5'
+
+
 class WirelessSensorType(graphene.Enum):
     ruuvi = 1
     door = 2
@@ -47,5 +56,11 @@ class DoorSensorObject(BaseWirelessSensorObject):
 
 class RangeSensorObject(BaseWirelessSensorObject):
     status = graphene.Argument(graphene.Int, default_value=0)
+    value = graphene.Argument(graphene.Int, required=True)
+
+
+class WiredSensorObject(graphene.InputObjectType):
+    gpiox = graphene.Argument(WiredSensorType, required=True)
+    offset = graphene.Argument(graphene.Int, default_value=15)
     value = graphene.Argument(graphene.Int, required=True)
 

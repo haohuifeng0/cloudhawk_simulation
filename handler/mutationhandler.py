@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import logging
 import struct
+import threading
 import time
 from threading import Thread
 
@@ -12,7 +13,7 @@ from libs import RESPONSE, fn
 from libs.composer import Composer
 from libs.dotdict import DotDict
 from libs.graphqlobjecttype import Result, ChargingStatus, AlertType, \
-    RuuviSensorObject, DoorSensorObject, RangeSensorObject
+    RuuviSensorObject, DoorSensorObject, RangeSensorObject, WiredSensorType, WiredSensorObject
 
 
 class Add(graphene.Mutation):
@@ -28,8 +29,8 @@ class Add(graphene.Mutation):
             code, message = RESPONSE.fmt_response(RESPONSE.TRACKER_EXISTS)
         else:
 
-            options.tracker[sn] = DotDict(iccid=iccid, lon=104.03974,
-                                          lat=30.66578, seq=0,
+            options.tracker[sn] = DotDict(iccid=iccid, lon=-75.59302,
+                                          lat=41.40672, seq=0,
                                           bat=20, temp=10,
                                           chg=0, gsm=9, speed=80,
                                           course=10, gps=20, acc=10,
@@ -81,10 +82,10 @@ class Set(graphene.Mutation):
         if tk:
             if any([chg, bat, temp, gsm, acc]):
                 options.thread_lock.acquire()
-                [_ for _ in map(_set_conf, [{'chg': chg},
-                                            {'bat': bat},
-                                            {'temp': temp},
-                                            {'acc': acc}])]
+                list(map(_set_conf, [{'chg': chg},
+                                     {'bat': bat},
+                                     {'temp': temp},
+                                     {'acc': acc}]))
                 options.thread_lock.release()
                 u2 = Composer(tk.lon, tk.lat).compose_heartbat(fn.get_seq(sn), fn.fmt_iccid(tk.iccid), tk)
                 options.socket_param.send(u2)
@@ -124,18 +125,18 @@ class SetAlert(graphene.Mutation):
                     tk[k] = args[k]
         if tk:
             options.thread_lock.acquire()
-            [_ for _ in map(_set_conf, [{'type': type},
-                                        {'bat': bat},
-                                        {'temp': temp},
-                                        {'ts': ts},
-                                        {'gsm': gsm},
-                                        {'gps': gps},
-                                        {'course': course},
-                                        {'speed': speed},
-                                        {'alt': alt},
-                                        {'lon': lon},
-                                        {'lat': lat},
-                                        {'acc': acc}])]
+            list(map(_set_conf, [{'type': type},
+                                 {'bat': bat},
+                                 {'temp': temp},
+                                 {'ts': ts},
+                                 {'gsm': gsm},
+                                 {'gps': gps},
+                                 {'course': course},
+                                 {'speed': speed},
+                                 {'alt': alt},
+                                 {'lon': lon},
+                                 {'lat': lat},
+                                 {'acc': acc}]))
             options.thread_lock.release()
             u4 = Composer(tk.lon, tk.lat).compose_u4(tk)
             options.socket_param.send(u4)
@@ -148,41 +149,97 @@ class SetAlert(graphene.Mutation):
 class Move(graphene.Mutation):
     class Arguments:
         sn = graphene.Argument(graphene.String, required=True)
-        lons = graphene.Argument(graphene.List(graphene.Float), required=True)
-        lats = graphene.Argument(graphene.List(graphene.Float), required=True)
+        lonlats = graphene.Argument(graphene.List(graphene.List(graphene.Float)), required=True)
         speed = graphene.Argument(graphene.Int)
+        last_stop = graphene.Argument(graphene.Boolean)
 
     Output = Result
 
-    def mutate(self, info, sn, lons, lats, speed=None):
+    def mutate(self, info, sn, lonlats, speed=None, last_stop=False):
         tk = options.tracker.get(sn)
         ts = int(time.time())
 
         if tk:
-            if len(lons) != len(lats):
-                return Result(code=RESPONSE.ILLEGAL_FORMAT, message='经度与纬度数量不匹配')
-            lonlats = [x for x in zip(lons, lats)]
             error_lons = []
             error_lats = []
-            for t in lonlats:
+            for i, t in enumerate(lonlats):
                 if t[0] > 180 or t[0] < -180:
                     error_lons.append(t[0])
                 if t[1] > 90 or t[1] < -90:
                     error_lats.append(t[1])
+                lonlats[i][0] *= 100000
+                lonlats[i][1] *= 100000
+                if len(lonlats[i]) == 2:
+                    lonlats[i].append(ts)
+                    ts += 10
+
             if error_lats or error_lons:
                 return Result(code=RESPONSE.ILLEGAL_FORMAT,
                               message='经度或纬度超出范围, '
                                       '经度: %s; 纬度: %s' % (error_lons, error_lats))
-
-            if speed is not None:
+            else:
                 options.thread_lock.acquire()
-                tk['speed'] = speed
+                tk['lon'] = lonlats[-1][0]/100000
+                tk['lat'] = lonlats[-1][1]/100000
+                if speed is not None:
+                    tk['speed'] = speed
                 options.thread_lock.release()
-            u4 = Composer(tk.lon, tk.lat).compose_move(tk, lonlats, ts)
-            options.socket_param.send(u4)
+            u5 = Composer(tk.lon, tk.lat).compose_move(tk, lonlats)
+            options.socket_param.send(u5)
+            if last_stop:
+                ts = lonlats[-1][2]+2
+                threading.Timer(ts, options.socket_param.send,
+                                args=(Composer(tk.lon, tk.lat).compose_stop(tk, ts=ts)))
+                # u5 = Composer(tk.lon, tk.lat).compose_stop(tk)
+                # options.socket_param.send(u5)
             code, message = RESPONSE.fmt_response(RESPONSE.OK)
         else:
             code, message = RESPONSE.fmt_response(RESPONSE.TRACKER_NOT_EXISTS)
+        return Result(code=code, message=message)
+
+
+class Stop(graphene.Mutation):
+    class Arguments:
+        sn = graphene.Argument(graphene.String, required=True)
+        ts = graphene.Argument(graphene.Int)
+
+    Output = Result
+
+    def mutate(self, info, sn, ts=None):
+        tk = options.tracker.get(sn)
+
+        if tk:
+            u5 = Composer(tk.lon, tk.lat).compose_stop(tk, ts=ts)
+            options.socket_param.send(u5)
+            code, message = RESPONSE.fmt_response(RESPONSE.OK)
+        else:
+            code, message = RESPONSE.fmt_response(RESPONSE.TRACKER_NOT_EXISTS)
+        return Result(code=code, message=message)
+
+
+class WiredSensor(graphene.Mutation):
+    class Arguments:
+        sn = graphene.Argument(graphene.String, required=True)
+        wireds = graphene.Argument(graphene.List(WiredSensorObject), required=True)
+
+    Output = Result
+
+    def mutate(self, info, sn, wireds):
+        tk = options.tracker.get(sn)
+
+        if tk:
+            cp = Composer(tk.lon, tk.lat)
+            info = ''
+            for d in wireds:
+                if info:
+                    info += '|'
+                info += d['gpiox'] + '@' + str(d['offset']) + '=' + str(d['value'])
+            msg = cp.compose_u6(tk, info)
+            options.socket_param.send(msg)
+            code, message = RESPONSE.fmt_response(RESPONSE.OK)
+        else:
+            code, message = RESPONSE.fmt_response(RESPONSE.TRACKER_NOT_EXISTS)
+
         return Result(code=code, message=message)
 
 
@@ -218,3 +275,21 @@ class WirelessSensor(graphene.Mutation):
 
         return Result(code=code, message=message)
 
+
+class SelfCheck(graphene.Mutation):
+    class Arguments:
+        sn = graphene.Argument(graphene.String, required=True)
+
+    Output = Result
+
+    def mutate(self, info, sn):
+        tk = options.tracker.get(sn)
+
+        if tk:
+            cp = Composer(tk.lon, tk.lat)
+            msg = cp.compose_u8(tk)
+            options.socket_param.send(msg)
+            code, message = RESPONSE.fmt_response(RESPONSE.OK)
+        else:
+            code, message = RESPONSE.fmt_response(RESPONSE.TRACKER_NOT_EXISTS)
+        return Result(code=code, message=message)
